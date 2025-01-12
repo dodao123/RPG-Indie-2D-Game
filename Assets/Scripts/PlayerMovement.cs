@@ -25,6 +25,16 @@ public class PlayerMovement : MonoBehaviour
     public Collider2D attackCollider;  // Collider dùng khi tấn công
     public GameObject attackColliderObject; // GameObject chứa attackCollider
 
+    [Header("Explosion Settings")]
+    public GameObject explosionPrefab; // Prefab của vụ nổ
+    public GameObject rangeIndicator; // Gắn GameObject chứa SpriteRenderer
+
+    [Header("Skill E Settings")]
+    public GameObject projectilePrefab; // Prefab của vật thể được bắn ra
+    public float projectileSpeed = 10f; // Tốc độ của vật thể
+    public float skillRange = 5f; // Khoảng cách tối đa của skill
+
+
     private CapsuleCollider2D capsuleCollider; // Tham chiếu đến Capsule Collider
 
     private bool isDashing = false; // Trạng thái dịch chuyển nhanh (Dash)
@@ -64,6 +74,17 @@ public class PlayerMovement : MonoBehaviour
         {
             Debug.LogError("CapsuleCollider2D component is missing from the game object.");
         }
+        // Kiểm tra và đảm bảo rangeIndicator tồn tại
+        if (rangeIndicator != null)
+        {
+            // Đặt kích thước vòng tròn theo bán kính (10f)
+            rangeIndicator.transform.localScale = new Vector3(4f, 4f, 1f); // 2 * radius
+            rangeIndicator.SetActive(true); // Hiển thị khi cần
+        }
+        else
+        {
+            Debug.LogWarning("RangeIndicator is not assigned!");
+        }
     }
 
     void Update()
@@ -99,7 +120,17 @@ public class PlayerMovement : MonoBehaviour
         {
             StartCoroutine(HandleDash()); // Kích hoạt chức năng Dash
         }
+
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            TriggerExplosion();
+        }
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            UseSkillE();
+        }
     }
+
 
     void FixedUpdate()
     {
@@ -208,6 +239,85 @@ public class PlayerMovement : MonoBehaviour
         moveSpeed = initialSpeed;
 
         isDashing = false;
+    }
+
+    private void TriggerExplosion()
+    {
+        // Lấy vị trí của con trỏ chuột trong không gian thế giới
+        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        mousePosition.z = 0f; // Đảm bảo tọa độ Z là 0
+
+        // Tính khoảng cách từ nhân vật đến con trỏ chuột
+        float distanceToMouse = Vector3.Distance(transform.position, mousePosition);
+
+        // Chỉ kích hoạt vụ nổ nếu khoảng cách <= 10f
+        if (distanceToMouse <= 5f)
+        {
+            // Kiểm tra xem prefab có được gán chưa
+            if (explosionPrefab != null)
+            {
+                // Tạo vụ nổ tại vị trí con trỏ chuột
+                GameObject explosion = Instantiate(explosionPrefab, mousePosition, Quaternion.identity);
+
+                // Hủy đối tượng sau 0.5 giây
+                Destroy(explosion, 0.5f);
+            }
+            else
+            {
+                Debug.LogError("Explosion prefab is not assigned.");
+            }
+        }
+        else
+        {
+            Debug.Log("Target position is out of range.");
+        }
+    }
+    private void UseSkillE()
+    {
+        if (projectilePrefab == null)
+        {
+            Debug.LogError("Projectile prefab is not assigned.");
+            return;
+        }
+
+        // Tạo vật thể projectile
+        GameObject projectile = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
+
+        // Lấy hướng nhân vật đang nhìn
+        Vector3 direction = GetFacingDirection();
+
+        // Tính toán vị trí đích cuối cùng
+        Vector3 targetPosition = transform.position + direction * skillRange;
+
+        // Di chuyển projectile về phía trước
+        StartCoroutine(MoveProjectile(projectile, targetPosition));
+    }
+
+    private IEnumerator MoveProjectile(GameObject projectile, Vector3 targetPosition)
+    {
+        while (Vector3.Distance(projectile.transform.position, targetPosition) > 0.1f)
+        {
+            // Di chuyển projectile về phía đích
+            projectile.transform.position = Vector3.MoveTowards(
+                projectile.transform.position,
+                targetPosition,
+                projectileSpeed * Time.deltaTime
+            );
+            yield return null;
+        }
+
+        // Hủy projectile sau khi hoàn thành
+        Destroy(projectile);
+    }
+
+    private Vector3 GetFacingDirection()
+    {
+        // Lấy hướng nhân vật đang quay
+        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        mousePosition.z = 0f;
+
+        Vector3 direction = (mousePosition - transform.position).normalized;
+        return direction;
     }
 
 }
