@@ -103,8 +103,6 @@ public class PlayerMovement : MonoBehaviour
         anim.SetBool("isMove", movement.magnitude > 0);
 
         // Cập nhật hướng trong Animator
-        anim.SetFloat("Horizontal", movement.x);
-        anim.SetFloat("Vertical", movement.y);
 
         // Quay nhân vật theo hướng con trỏ chuột
         FlipTowardsMouse();
@@ -129,6 +127,22 @@ public class PlayerMovement : MonoBehaviour
         {
             UseSkillE();
         }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.CompareTag("AxesMonster")) // Kiểm tra tag của đối tượng va chạm
+        {
+            Debug.Log("AxesMonster collided!");
+            anim.SetBool("isAttacked", true);
+
+            // Gọi hàm ResetAttackStatus sau 0.5 giây
+            Invoke("ResetAttackStatus", 0.2f);
+        }
+    }
+    private void ResetAttackStatus()
+    {
+        anim.SetBool("isAttacked", false);
     }
 
 

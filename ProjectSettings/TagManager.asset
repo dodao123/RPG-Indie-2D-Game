@@ -8,6 +8,9 @@ TagManager:
   - Sword
   - Skill Q
   - Skill E
+  - Boss
+  - SkillBot1
+  - AxesMonster
   layers:
   - Default
   - TransparentFX
