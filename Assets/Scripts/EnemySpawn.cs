@@ -2,9 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-/// <summary>
 /// Manages enemy wave spawning, soul collection mechanics, and wave progression
-/// </summary>
 public class EnemySpawner : MonoBehaviour
 {
     [Header("Wave Configuration")]
@@ -32,6 +30,9 @@ public class EnemySpawner : MonoBehaviour
     private Transform activeSoulPoint;
     private ParticleSystem activeSoulParticle;
 
+    // Danh sách lưu trữ các con quái bị giết
+    private List<GameObject> deadEnemies = new List<GameObject>();
+
     private void Start()
     {
         InitializeAndStartFirstWave();
@@ -40,11 +41,10 @@ public class EnemySpawner : MonoBehaviour
     private void Update()
     {
         CheckSoulCollection();
+        Debug.Log(activeEnemies.Count);
     }
 
-    /// <summary>
     /// Initializes game state and starts the first wave
-    /// </summary>
     private void InitializeAndStartFirstWave()
     {
         currentWave = 0;
@@ -52,9 +52,7 @@ public class EnemySpawner : MonoBehaviour
         StartNextWave();
     }
 
-    /// <summary>
     /// Handles soul collection interaction check
-    /// </summary>
     private void CheckSoulCollection()
     {
         if (!isSoulInteractable || activeSoulPoint == null) return;
@@ -66,9 +64,7 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
-    /// <summary>
     /// Initiates the next wave of enemies
-    /// </summary>
     private void StartNextWave()
     {
         currentWave++;
@@ -85,9 +81,7 @@ public class EnemySpawner : MonoBehaviour
         SpawnEnemiesForCurrentWave();
     }
 
-    /// <summary>
     /// Spawns appropriate enemies based on current wave
-    /// </summary>
     private void SpawnEnemiesForCurrentWave()
     {
         if (currentWave == maxWaves)
@@ -104,9 +98,7 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
-    /// <summary>
     /// Spawns regular enemies for the current wave
-    /// </summary>
     private void SpawnRegularEnemies()
     {
         int enemyCount = currentWave == 1 ? 6 : 8;  // First wave: 6 enemies, others: 8 enemies
@@ -122,41 +114,66 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
-    /// <summary>
     /// Spawns a boss enemy
-    /// </summary>
-    /// <param name="isFinalWave">Whether this is the final wave (boss only)</param>
+    /// Spawns a boss enemy
     private void SpawnBoss(bool isFinalWave)
     {
-        Vector3 spawnPosition = bossSpawnPoints[Random.Range(0, bossSpawnPoints.Length)].position;
-        GameObject boss = Instantiate(bossPrefab, spawnPosition, Quaternion.identity);
-        activeEnemies.Add(boss);
+        if (isFinalWave)
+        {
+            // Spawn 4 bosses at the 4 spawn points
+            for (int i = 0; i < bossSpawnPoints.Length; i++)
+            {
+                Vector3 spawnPosition = bossSpawnPoints[i].position;
+                GameObject boss = Instantiate(bossPrefab, spawnPosition, Quaternion.identity);
+                activeEnemies.Add(boss);
+            }
+        }
+        else
+        {
+            // If not final wave, spawn a single boss
+            Vector3 spawnPosition = bossSpawnPoints[Random.Range(0, bossSpawnPoints.Length)].position;
+            GameObject boss = Instantiate(bossPrefab, spawnPosition, Quaternion.identity);
+            activeEnemies.Add(boss);
+        }
     }
 
-    /// <summary>
+
     /// Handles enemy death event
-    /// </summary>
     public void OnEnemyKilled()
     {
+        // Thêm các con quái bị giết vào danh sách deadEnemies
+        deadEnemies.Clear();
+        foreach (var enemy in activeEnemies)
+        {
+            if (enemy == null)
+            {
+                deadEnemies.Add(enemy);
+            }
+        }
+
+        // Chỉ xóa các con quái đã chết khỏi danh sách activeEnemies sau khi hoàn thành kiểm tra
         CleanupDeadEnemies();
 
-        if (activeEnemies.Count == 1)  // Spawn soul point when one enemy remains
+        // Kiểm tra số lượng quái vật còn lại
+        if (activeEnemies.Count == 3)  // Tạo điểm linh hồn khi chỉ còn một quái vật sống sót
         {
             CreateSoulInteractionPoint();
         }
     }
 
-    /// <summary>
     /// Removes destroyed enemies from tracking list
-    /// </summary>
     private void CleanupDeadEnemies()
     {
-        activeEnemies.RemoveAll(enemy => enemy == null);
+        // Xóa các con quái bị giết khỏi activeEnemies
+        foreach (var deadEnemy in deadEnemies)
+        {
+            activeEnemies.Remove(deadEnemy);
+        }
+        // Giải phóng danh sách deadEnemies sau khi đã làm sạch
+        deadEnemies.Clear();
     }
 
-    /// <summary>
     /// Creates a soul interaction point with particles
-    /// </summary>
     private void CreateSoulInteractionPoint()
     {
         activeSoulPoint = spawnPoints[Random.Range(0, spawnPoints.Length)];
@@ -169,9 +186,7 @@ public class EnemySpawner : MonoBehaviour
         isSoulInteractable = true;
     }
 
-    /// <summary>
     /// Handles soul collection by the player
-    /// </summary>
     private void CollectSoul()
     {
         playerSoulPoints++;
@@ -179,9 +194,7 @@ public class EnemySpawner : MonoBehaviour
         StartCoroutine(StartNextWaveWithDelay());
     }
 
-    /// <summary>
     /// Manages particle effects for soul collection
-    /// </summary>
     private void HandleSoulCollectionEffects()
     {
         if (activeSoulParticle != null)
@@ -202,9 +215,7 @@ public class EnemySpawner : MonoBehaviour
         StartNextWave();
     }
 
-    /// <summary>
     /// Gets the current player position
-    /// </summary>
     private Vector2 GetPlayerPosition()
     {
         GameObject player = GameObject.FindGameObjectWithTag("Player");
