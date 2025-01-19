@@ -2,101 +2,232 @@
 using System.Collections;
 using System.Collections.Generic;
 
+/// <summary>
+/// Manages enemy wave spawning, soul collection mechanics, and wave progression
+/// </summary>
 public class EnemySpawner : MonoBehaviour
 {
+    [Header("Wave Configuration")]
     [SerializeField] private GameObject[] enemyPrefabs;
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private GameObject bossPrefab;
-    [SerializeField] private Transform bossSpawnPoint;
-    [SerializeField] private int initialEnemyCount = 6;
-    [SerializeField] private int killThreshold = 4;
-    [SerializeField] private int maxEnemyCount = 12;
+    [SerializeField] private Transform[] bossSpawnPoints;
+    [SerializeField] private int maxWaves = 4;
+    [SerializeField] private float delayBetweenWaves = 4f;
 
-    private int enemiesKilled = 0;
-    private int wavesCompleted = 0;
-    private bool isBossSpawned = false;
-    private List<GameObject> enemies = new List<GameObject>();
-    private bool isSpawning = false;
+    [Header("Soul Collection Settings")]
+    [SerializeField] private float soulInteractRadius = 2f;
+    [SerializeField] private ParticleSystem soulParticlePrefab;
+    [SerializeField] private float particleDuration = 3f;
+    [SerializeField] private KeyCode soulCollectionKey = KeyCode.R;
+
+    // Wave tracking
+    private int currentWave;
+    private bool isWaveInProgress;
+    private List<GameObject> activeEnemies = new List<GameObject>();
+
+    // Soul collection state
+    private int playerSoulPoints;
+    private bool isSoulInteractable;
+    private Transform activeSoulPoint;
+    private ParticleSystem activeSoulParticle;
 
     private void Start()
     {
-        SpawnEnemies(initialEnemyCount);
+        InitializeAndStartFirstWave();
     }
 
     private void Update()
     {
-        if (!isSpawning && AreAllEnemiesKilled())
-        {
-            isSpawning = true;
-            StartCoroutine(SpawnNextWave());
-        }
+        CheckSoulCollection();
     }
 
-    private void SpawnEnemies(int count)
+    /// <summary>
+    /// Initializes game state and starts the first wave
+    /// </summary>
+    private void InitializeAndStartFirstWave()
     {
-        int spawnCount = Mathf.Min(count, maxEnemyCount);
-        for (int i = 0; i < spawnCount; i++)
-        {
-            int randomIndex = Random.Range(0, spawnPoints.Length);
-            Vector2 spawnPosition = spawnPoints[randomIndex].position;
-            int randomEnemyIndex = Random.Range(0, enemyPrefabs.Length);
-            GameObject enemyPrefab = enemyPrefabs[randomEnemyIndex];
-            GameObject enemy = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity);
-            enemies.Add(enemy);
-        }
+        currentWave = 0;
+        playerSoulPoints = 0;
+        StartNextWave();
     }
 
-    private bool AreAllEnemiesKilled()
+    /// <summary>
+    /// Handles soul collection interaction check
+    /// </summary>
+    private void CheckSoulCollection()
     {
-        enemies.RemoveAll(enemy => enemy == null);
-        return enemies.Count == 0;
+        if (!isSoulInteractable || activeSoulPoint == null) return;
+
+        float distanceToPlayer = Vector2.Distance(activeSoulPoint.position, GetPlayerPosition());
+        if (distanceToPlayer <= soulInteractRadius && Input.GetKeyDown(soulCollectionKey))
+        {
+            CollectSoul();
+        }
     }
 
-    private IEnumerator SpawnNextWave()
+    /// <summary>
+    /// Initiates the next wave of enemies
+    /// </summary>
+    private void StartNextWave()
     {
-        yield return new WaitForSeconds(2f);
-        enemiesKilled = 0;
-        wavesCompleted++;
+        currentWave++;
+        isWaveInProgress = true;
+        isSoulInteractable = false;
+        activeEnemies.Clear();
 
-        if (wavesCompleted >= 1 && !isBossSpawned)
+        if (currentWave > maxWaves)
         {
-            SpawnBoss();
-            SpawnBoss();
+            OnGameComplete();
+            return;
         }
-        else
-        {
-            int additionalEnemies = Random.Range(7, 13);
-            SpawnEnemies(additionalEnemies);
-            killThreshold += 4;
-        }
-        isSpawning = false;
+
+        SpawnEnemiesForCurrentWave();
     }
 
-    private void SpawnBoss()
+    /// <summary>
+    /// Spawns appropriate enemies based on current wave
+    /// </summary>
+    private void SpawnEnemiesForCurrentWave()
     {
-        if (bossPrefab != null && bossSpawnPoint != null)
+        if (currentWave == maxWaves)
         {
-            GameObject boss = Instantiate(bossPrefab, bossSpawnPoint.position, Quaternion.identity);
-            MonsterAI bossAI = boss.GetComponent<MonsterAI>();
-            isBossSpawned = true;
+            SpawnBoss(true);  // Final wave - boss only
+            return;
+        }
 
-            // Kiểm tra waves completed và cho phép tấn công
-            if (bossAI != null && wavesCompleted >= 1)
-            {
-                bossAI.AllowPlayerToAttack();
-                Debug.Log($"Boss spawned after {wavesCompleted} waves - Player can now attack!");
-            }
+        SpawnRegularEnemies();
+
+        if (currentWave == maxWaves - 1)  // Penultimate wave
+        {
+            SpawnBoss(false);  // Boss with regular enemies
         }
     }
 
+    /// <summary>
+    /// Spawns regular enemies for the current wave
+    /// </summary>
+    private void SpawnRegularEnemies()
+    {
+        int enemyCount = currentWave == 1 ? 6 : 8;  // First wave: 6 enemies, others: 8 enemies
+
+        for (int i = 0; i < enemyCount; i++)
+        {
+            GameObject enemy = Instantiate(
+                enemyPrefabs[Random.Range(0, enemyPrefabs.Length)],
+                spawnPoints[Random.Range(0, spawnPoints.Length)].position,
+                Quaternion.identity
+            );
+            activeEnemies.Add(enemy);
+        }
+    }
+
+    /// <summary>
+    /// Spawns a boss enemy
+    /// </summary>
+    /// <param name="isFinalWave">Whether this is the final wave (boss only)</param>
+    private void SpawnBoss(bool isFinalWave)
+    {
+        Vector3 spawnPosition = bossSpawnPoints[Random.Range(0, bossSpawnPoints.Length)].position;
+        GameObject boss = Instantiate(bossPrefab, spawnPosition, Quaternion.identity);
+        activeEnemies.Add(boss);
+    }
+
+    /// <summary>
+    /// Handles enemy death event
+    /// </summary>
     public void OnEnemyKilled()
     {
-        enemiesKilled++;
+        CleanupDeadEnemies();
+
+        if (activeEnemies.Count == 1)  // Spawn soul point when one enemy remains
+        {
+            CreateSoulInteractionPoint();
+        }
     }
 
-    // Thêm getter để MonsterAI có thể kiểm tra waves
-    public int GetWavesCompleted()
+    /// <summary>
+    /// Removes destroyed enemies from tracking list
+    /// </summary>
+    private void CleanupDeadEnemies()
     {
-        return wavesCompleted;
+        activeEnemies.RemoveAll(enemy => enemy == null);
     }
+
+    /// <summary>
+    /// Creates a soul interaction point with particles
+    /// </summary>
+    private void CreateSoulInteractionPoint()
+    {
+        activeSoulPoint = spawnPoints[Random.Range(0, spawnPoints.Length)];
+
+        if (soulParticlePrefab != null && activeSoulParticle == null)
+        {
+            activeSoulParticle = Instantiate(soulParticlePrefab, activeSoulPoint.position, Quaternion.identity);
+        }
+
+        isSoulInteractable = true;
+    }
+
+    /// <summary>
+    /// Handles soul collection by the player
+    /// </summary>
+    private void CollectSoul()
+    {
+        playerSoulPoints++;
+        HandleSoulCollectionEffects();
+        StartCoroutine(StartNextWaveWithDelay());
+    }
+
+    /// <summary>
+    /// Manages particle effects for soul collection
+    /// </summary>
+    private void HandleSoulCollectionEffects()
+    {
+        if (activeSoulParticle != null)
+        {
+            ParticleSystem collectEffect = Instantiate(soulParticlePrefab, activeSoulPoint.position, Quaternion.identity);
+            collectEffect.Play();
+            Destroy(collectEffect.gameObject, particleDuration);
+            Destroy(activeSoulParticle.gameObject);
+        }
+
+        isSoulInteractable = false;
+        activeSoulPoint = null;
+    }
+
+    private IEnumerator StartNextWaveWithDelay()
+    {
+        yield return new WaitForSeconds(delayBetweenWaves);
+        StartNextWave();
+    }
+
+    /// <summary>
+    /// Gets the current player position
+    /// </summary>
+    private Vector2 GetPlayerPosition()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        return player != null ? (Vector2)player.transform.position : Vector2.zero;
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (activeSoulPoint != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(activeSoulPoint.position, soulInteractRadius);
+        }
+    }
+
+    private void OnGameComplete()
+    {
+        Debug.Log("All waves completed!");
+        isWaveInProgress = false;
+    }
+
+    // Public accessors
+    public int GetPlayerSoulPoints() => playerSoulPoints;
+    public int GetCurrentWave() => currentWave;
+    public bool IsWaveInProgress() => isWaveInProgress;
 }

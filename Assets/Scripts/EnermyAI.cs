@@ -14,6 +14,8 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float detectionRadius = 10f;
     [SerializeField] private int maxHealth = 10; // Máu tối đa
     private int currentHealth; // Máu hiện tại
+    private float attackRadius = 3f;
+    private SpriteRenderer spriteRenderer;
 
     [SerializeField] private Slider healthSlider; // Tham chiếu đến Slider
     [SerializeField] private Vector3 sliderOffset = new Vector3(0, 0.5f, 0); // Để thanh trượt ở trên đầu quái vật
@@ -28,6 +30,7 @@ public class EnemyAI : MonoBehaviour
 
     private void Awake()
     {
+        spriteRenderer = GetComponent<SpriteRenderer>(); // Lấy component SpriteRenderer
         enemyPathfinding = GetComponent<EnemyPathfinding>();
         anim = GetComponent<Animator>();
         state = State.Roaming;
@@ -58,6 +61,44 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    private void Attack()
+    {
+        // Tính khoảng cách giữa enemy và player
+        float distanceToPlayer = Vector2.Distance(transform.position, player.position);
+
+        if (distanceToPlayer <= attackRadius)
+        {
+            // Nếu trong bán kính tấn công, thực hiện dash và bật animation tấn công
+            anim.SetBool("isAttack", true); // Bật animation tấn công
+
+            // Hướng lao tới player
+            Vector2 dashDirection = (player.position - transform.position).normalized;
+
+            // Tính toán vị trí mới sau khi lao
+            float dashSpeed = 6f; // Tốc độ lao (có thể chỉnh trong Inspector nếu cần)
+            Vector2 newPosition = (Vector2)transform.position + dashDirection * dashSpeed * Time.deltaTime;
+
+            // Cập nhật vị trí
+            transform.position = newPosition; // Hoặc sử dụng Rigidbody2D để di chuyển
+        }
+        else
+        {
+            // Ngoài phạm vi tấn công, tắt animation tấn công
+            anim.SetBool("isAttack", false);
+
+            // Di chuyển bình thường hoặc không di chuyển
+            float normalSpeed = 2f; // Tốc độ di chuyển bình thường
+            Vector2 moveDirection = (player.position - transform.position).normalized;
+            Vector2 newPosition = (Vector2)transform.position + moveDirection * normalSpeed * Time.deltaTime;
+
+            // Cập nhật vị trí di chuyển bình thường
+            transform.position = newPosition;
+        }
+    }
+
+
+
+
     private void Update()
     {
         // Cập nhật vị trí của thanh trượt để nó theo quái vật
@@ -71,9 +112,23 @@ public class EnemyAI : MonoBehaviour
         if (Vector2.Distance(transform.position, player.position) < detectionRadius)
         {
             state = State.Chasing;
-            enemyPathfinding.MoveTo(player.position);
+            enemyPathfinding.MoveTo(player.position); 
+            Attack();
+        }
+        FlipSprite(player.position.x - transform.position.x);
+    }
+    private void FlipSprite(float directionX)
+    {
+        if (directionX > 0)
+        {
+            spriteRenderer.flipX = false; // Hướng sang phải
+        }
+        else if (directionX < 0)
+        {
+            spriteRenderer.flipX = true; // Hướng sang trái
         }
     }
+
 
     private IEnumerator RoamingRoutine()
     {
@@ -84,6 +139,8 @@ public class EnemyAI : MonoBehaviour
             yield return new WaitForSeconds(2f); // Dừng 2 giây trước khi tiếp tục
         }
     }
+
+    
 
     private Vector2 GetRoamingPosition()
     {

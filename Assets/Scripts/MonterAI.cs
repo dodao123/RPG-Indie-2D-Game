@@ -29,7 +29,7 @@ public class MonsterAI : MonoBehaviour
     private EnemyPathfinding enemyPathfinding;
     private EnemySpawner spawner;
     private int currentHealth;
-    private bool playerCanAttack = false;
+    private bool playerCanAttack = true;
     private bool isAttacking = false;
     private bool canAttack = true;
     private bool isKilled = false;
@@ -65,10 +65,6 @@ public class MonsterAI : MonoBehaviour
         }
 
         // Kiểm tra waves completed khi spawn
-        if (spawner != null && spawner.GetWavesCompleted() >= 3)
-        {
-            AllowPlayerToAttack();
-        }
     }
  
 
