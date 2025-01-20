@@ -182,19 +182,19 @@ AnimatorController:
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
-    m_Controller: {fileID: 0}
+    m_Controller: {fileID: 9100000}
   - m_Name: isClickLeftMouse
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
-    m_Controller: {fileID: 0}
+    m_Controller: {fileID: 9100000}
   - m_Name: isAttacked
     m_Type: 4
     m_DefaultFloat: 0
     m_DefaultInt: 0
     m_DefaultBool: 0
-    m_Controller: {fileID: 0}
+    m_Controller: {fileID: 9100000}
   m_AnimatorLayers:
   - serializedVersion: 5
     m_Name: Base Layer
@@ -357,24 +357,24 @@ AnimatorStateMachine:
   m_ChildStates:
   - serializedVersion: 1
     m_State: {fileID: 8370638644589034348}
-    m_Position: {x: 210, y: 200, z: 0}
+    m_Position: {x: 1290, y: 560, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 4015624656691904478}
-    m_Position: {x: 240, y: 390, z: 0}
+    m_Position: {x: 1320, y: 750, z: 0}
   - serializedVersion: 1
     m_State: {fileID: 361484584142407237}
-    m_Position: {x: 420, y: 260, z: 0}
+    m_Position: {x: 1500, y: 620, z: 0}
   - serializedVersion: 1
     m_State: {fileID: -5556104726440301645}
-    m_Position: {x: 20, y: 310, z: 0}
+    m_Position: {x: 1140, y: 670, z: 0}
   m_ChildStateMachines: []
   m_AnyStateTransitions: []
   m_EntryTransitions: []
   m_StateMachineTransitions: {}
   m_StateMachineBehaviours: []
-  m_AnyStatePosition: {x: 50, y: 20, z: 0}
-  m_EntryPosition: {x: 110, y: 120, z: 0}
-  m_ExitPosition: {x: 800, y: 120, z: 0}
+  m_AnyStatePosition: {x: 1130, y: 380, z: 0}
+  m_EntryPosition: {x: 1190, y: 480, z: 0}
+  m_ExitPosition: {x: 1110, y: 120, z: 0}
   m_ParentStateMachinePosition: {x: 800, y: 20, z: 0}
   m_DefaultState: {fileID: 8370638644589034348}
 --- !u!1101 &7076981674360777668

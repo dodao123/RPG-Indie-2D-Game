@@ -402,7 +402,7 @@ MonoBehaviour:
   TextMassage: {fileID: 6451446667502895624}
   player: {fileID: 0}
   attackCollider: {fileID: 6509843806909291682}
-  attackColliderComponent: {fileID: 4231066995006169403}
+  attackColliderComponent: {fileID: 765499465227797435}
   moveSpeed: 2
   attackRange: 1.2
   slowDownRange: 5
@@ -503,7 +503,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7129629490827067112}
-  - component: {fileID: 4231066995006169403}
+  - component: {fileID: 765499465227797435}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: AxesMonster
@@ -526,8 +526,8 @@ Transform:
   m_Children: []
   m_Father: {fileID: 631527988814868090}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!70 &4231066995006169403
-CapsuleCollider2D:
+--- !u!68 &765499465227797435
+EdgeCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -558,9 +558,19 @@ CapsuleCollider2D:
   m_IsTrigger: 1
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 1.6389084, y: -1.5528368}
-  m_Size: {x: 3.7778282, y: 0.5116547}
-  m_Direction: 1
+  m_Offset: {x: 0, y: 0}
+  m_EdgeRadius: 0
+  m_Points:
+  - {x: 0.8217834, y: -0.74780506}
+  - {x: 0.7688449, y: -1.9941454}
+  - {x: 3.0332952, y: -1.6425124}
+  - {x: 3.1758254, y: 0.35408518}
+  - {x: 1.281993, y: 1.1763439}
+  - {x: 0.78578967, y: -0.76560926}
+  m_AdjacentStartPoint: {x: 0, y: 0}
+  m_AdjacentEndPoint: {x: 0, y: 0}
+  m_UseAdjacentStartPoint: 0
+  m_UseAdjacentEndPoint: 0
 --- !u!1 &6679167138474571981
 GameObject:
   m_ObjectHideFlags: 0

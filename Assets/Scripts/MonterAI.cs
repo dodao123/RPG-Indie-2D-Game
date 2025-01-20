@@ -116,7 +116,7 @@ public class MonsterAI : MonoBehaviour
         {
             speed *= (distanceToPlayer - attackRange) / (slowDownRange - attackRange);
             animator?.SetBool("isAttacking", true);
-            Invoke(nameof(EnableAttackCollider), 0.6f);
+            Invoke(nameof(EnableAttackCollider), 0.04f);
         }
         else
         {

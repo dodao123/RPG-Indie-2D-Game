@@ -4,189 +4,276 @@ using System.Collections;
 
 public class EnemyAI : MonoBehaviour
 {
-    private enum State
-    {
-        Roaming,
-        Chasing
-    }
-
+    [Header("Movement Settings")]
+    [SerializeField] private float moveSpeed = 2f;
     [SerializeField] private float roamingRadius = 5f;
     [SerializeField] private float detectionRadius = 10f;
-    [SerializeField] private int maxHealth = 10; // Máu tối đa
-    private int currentHealth; // Máu hiện tại
-    private float attackRadius = 3f;
+    [SerializeField] private float attackRadius = 2f;
+
+    [Header("Attack Settings")]
+    [SerializeField] private float attackSpeed = 4f;
+    [SerializeField] private float attackDuration = 0.3f;
+    [SerializeField] private float attackCooldown = 1f;
+
+    [Header("Combat Settings")]
+    [SerializeField] private int maxHealth = 10;
+    [SerializeField] private float knockbackForce = 8f;
+    [SerializeField] private float knockbackDuration = 0.2f;
+    [SerializeField] private float stunDuration = 0.2f;
+
+    [Header("UI")]
+    [SerializeField] private Slider healthSlider;
+    [SerializeField] private Vector3 healthBarOffset = new Vector3(0, 0.5f, 0);
+
+    // Component references
+    private Rigidbody2D rb;
+    private Animator animator;
     private SpriteRenderer spriteRenderer;
-
-    [SerializeField] private Slider healthSlider; // Tham chiếu đến Slider
-    [SerializeField] private Vector3 sliderOffset = new Vector3(0, 0.5f, 0); // Để thanh trượt ở trên đầu quái vật
-
-    private State state;
-    private EnemyPathfinding enemyPathfinding;
-    private Vector2 startingPosition;
-    private Animator anim;
+    private EnemyPathfinding pathfinding;
     private Transform player;
 
-    private bool isKilled = false;
+    // State tracking
+    private Vector2 startPosition;
+    private Vector2 moveDirection;
+    private int currentHealth;
+    private bool isAttacking;
+    private bool isStunned;
+    private bool isDead;
+    private bool canAttack = true;
 
     private void Awake()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>(); // Lấy component SpriteRenderer
-        enemyPathfinding = GetComponent<EnemyPathfinding>();
-        anim = GetComponent<Animator>();
-        state = State.Roaming;
-        startingPosition = transform.position;
+        // Get all required components
+        rb = GetComponent<Rigidbody2D>();
+        animator = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        pathfinding = GetComponent<EnemyPathfinding>();
+        player = GameObject.FindGameObjectWithTag("Player").transform;
 
-        player = GameObject.FindWithTag("Player").transform;
+        // Set up Rigidbody2D
+        rb.gravityScale = 0;
+        rb.freezeRotation = true;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate;
 
-        if (anim == null)
-        {
-            Debug.LogError("Animator component is missing from the game object.");
-        }
-
-        // Kiểm tra nếu thanh máu chưa được gán
-        if (healthSlider == null)
-        {
-            Debug.LogError("Health Slider is not assigned in the Inspector!");
-        }
+        // Initialize state
+        startPosition = transform.position;
+        currentHealth = maxHealth;
     }
 
     private void Start()
     {
-        currentHealth = maxHealth; // Đặt máu ban đầu
-        UpdateHealthUI(); // Cập nhật UI máu
-
-        if (!isKilled)
+        if (!healthSlider)
         {
-            StartCoroutine(RoamingRoutine());
+            Debug.LogWarning($"Health slider not assigned to {gameObject.name}");
+            return;
         }
+
+        UpdateHealthUI();
+        StartCoroutine(RoamingRoutine());
     }
-
-    private void Attack()
-    {
-        // Tính khoảng cách giữa enemy và player
-        float distanceToPlayer = Vector2.Distance(transform.position, player.position);
-
-        if (distanceToPlayer <= attackRadius)
-        {
-            // Nếu trong bán kính tấn công, thực hiện dash và bật animation tấn công
-            anim.SetBool("isAttack", true); // Bật animation tấn công
-
-            // Hướng lao tới player
-            Vector2 dashDirection = (player.position - transform.position).normalized;
-
-            // Tính toán vị trí mới sau khi lao
-            float dashSpeed = 6f; // Tốc độ lao (có thể chỉnh trong Inspector nếu cần)
-            Vector2 newPosition = (Vector2)transform.position + dashDirection * dashSpeed * Time.deltaTime;
-
-            // Cập nhật vị trí
-            transform.position = newPosition; // Hoặc sử dụng Rigidbody2D để di chuyển
-        }
-        else
-        {
-            // Ngoài phạm vi tấn công, tắt animation tấn công
-            anim.SetBool("isAttack", false);
-
-            // Di chuyển bình thường hoặc không di chuyển
-            float normalSpeed = 2f; // Tốc độ di chuyển bình thường
-            Vector2 moveDirection = (player.position - transform.position).normalized;
-            Vector2 newPosition = (Vector2)transform.position + moveDirection * normalSpeed * Time.deltaTime;
-
-            // Cập nhật vị trí di chuyển bình thường
-            transform.position = newPosition;
-        }
-    }
-
-
-
 
     private void Update()
     {
-        // Cập nhật vị trí của thanh trượt để nó theo quái vật
-        if (healthSlider != null)
-        {
-            Vector3 screenPosition = Camera.main.WorldToScreenPoint(transform.position + sliderOffset); // Cập nhật lại vị trí thanh máu
-            healthSlider.transform.position = screenPosition;
-        }
+        if (isDead) return;
 
-        // Kiểm tra xem quái vật có gần người chơi hay không
-        if (Vector2.Distance(transform.position, player.position) < detectionRadius)
-        {
-            state = State.Chasing;
-            enemyPathfinding.MoveTo(player.position); 
-            Attack();
-        }
-        FlipSprite(player.position.x - transform.position.x);
+        UpdateHealthBarPosition();
+        HandleEnemyBehavior();
     }
-    private void FlipSprite(float directionX)
+
+    private void HandleEnemyBehavior()
     {
-        if (directionX > 0)
+        if (isStunned || isAttacking) return;
+
+        float distanceToPlayer = Vector2.Distance(transform.position, player.position);
+
+        // Update facing direction
+        FlipSprite(player.position.x - transform.position.x);
+
+        // Handle behavior based on distance to player
+        if (distanceToPlayer <= attackRadius && canAttack)
         {
-            spriteRenderer.flipX = false; // Hướng sang phải
+            StartCoroutine(PerformAttack());
         }
-        else if (directionX < 0)
+        else if (distanceToPlayer <= detectionRadius)
         {
-            spriteRenderer.flipX = true; // Hướng sang trái
+            ChasePlayer();
         }
     }
 
+    private void ChasePlayer()
+    {
+        if (isStunned || isAttacking) return;
+
+        moveDirection = (player.position - transform.position).normalized;
+        pathfinding.MoveTo(player.position);
+
+        // Move towards player using Rigidbody2D
+        rb.velocity = moveDirection * moveSpeed;
+    }
 
     private IEnumerator RoamingRoutine()
     {
-        while (state == State.Roaming && !isKilled)
+        while (!isDead)
         {
-            Vector2 roamPosition = GetRoamingPosition();
-            enemyPathfinding.MoveTo(roamPosition);
-            yield return new WaitForSeconds(2f); // Dừng 2 giây trước khi tiếp tục
+            if (!isStunned && !isAttacking && Vector2.Distance(transform.position, player.position) > detectionRadius)
+            {
+                Vector2 roamPosition = startPosition + Random.insideUnitCircle * roamingRadius;
+                pathfinding.MoveTo(roamPosition);
+                yield return new WaitForSeconds(2f);
+            }
+            yield return new WaitForSeconds(0.5f);
         }
     }
 
-    
-
-    private Vector2 GetRoamingPosition()
+    private IEnumerator PerformAttack()
     {
-        Vector2 randomDirection = Random.insideUnitCircle * roamingRadius;
-        return startingPosition + randomDirection;
+        isAttacking = true;
+        canAttack = false;
+        animator.SetBool("isAttack", true);
+
+        // Store original position and calculate target position
+        Vector2 startPos = transform.position;
+        Vector2 targetPos = (Vector2)player.position;
+        Vector2 attackDirection = (targetPos - startPos).normalized;
+
+        // Perform attack dash
+        float elapsedTime = 0;
+        while (elapsedTime < attackDuration)
+        {
+            if (isDead) yield break;
+
+            rb.velocity = attackDirection * attackSpeed;
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // Reset after attack
+        rb.velocity = Vector2.zero;
+        animator.SetBool("isAttack", false);
+        isAttacking = false;
+
+        // Attack cooldown
+        yield return new WaitForSeconds(attackCooldown);
+        canAttack = true;
     }
 
-    private void OnTriggerEnter2D(Collider2D collision)
+    public void TakeDamage(int damage, Vector2 attackerPosition)
     {
-        if (!isKilled && collision.CompareTag("Sword"))
-        {
-            TakeDamage(2); // Giảm máu khi bị chạm
-        }
-        if (!isKilled && collision.CompareTag("Skill Q"))
-        {
-            TakeDamage(5); // Giảm máu khi bị chạm
-        }
-        if (!isKilled && collision.CompareTag("Skill E"))
-        {
-            TakeDamage(5); // Giảm máu khi bị chạm
-        }
-    }
+        if (isDead) return;
 
-    private void TakeDamage(int damage)
-    {
-        currentHealth -= damage; // Giảm máu
-        UpdateHealthUI(); // Cập nhật UI máu
+        // Apply damage
+        currentHealth -= damage;
+        UpdateHealthUI();
 
+        // Handle stun and knockback
+        StartCoroutine(HandleDamageEffects(attackerPosition));
+
+        // Check for death
         if (currentHealth <= 0)
         {
-            isKilled = true;
-            anim.SetBool("isKill", true);
-            StopAllCoroutines();
-            enemyPathfinding.StopMoving();
-
-            Destroy(gameObject, 0.5f);
-            FindObjectOfType<EnemySpawner>().OnEnemyKilled();
+            // Thay vì StartCoroutine(Die()), ta gọi Die() trực tiếp
+            Die();
         }
+    }
+
+    private IEnumerator HandleDamageEffects(Vector2 attackerPosition)
+    {
+        // Set states
+        isStunned = true;
+        isAttacking = false;
+        canAttack = false;
+
+        // Stop current actions
+        StopCoroutine(PerformAttack());
+        pathfinding.StopMoving();
+        animator.SetBool("isAttack", false);
+        animator.SetBool("isAttacked", true);
+
+        // Calculate knockback direction
+        Vector2 knockbackDirection = ((Vector2)transform.position - attackerPosition).normalized;
+
+        // Apply knockback
+        float elapsedTime = 0;
+        while (elapsedTime < knockbackDuration)
+        {
+            rb.velocity = knockbackDirection * knockbackForce;
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        // Reset states after knockback
+        rb.velocity = Vector2.zero;
+        yield return new WaitForSeconds(stunDuration);
+
+        // Reset all states if not dead
+        if (!isDead)
+        {
+            isStunned = false;
+            canAttack = true;
+            animator.SetBool("isAttacked", false);
+        }
+    }
+
+    private void Die()
+    {
+        isDead = true;
+        animator.SetBool("isKill", true);
+
+        // Stop all movement and actions
+        StopAllCoroutines();
+        pathfinding.StopMoving();
+        rb.velocity = Vector2.zero;
+
+        // Notify spawner
+        var spawner = FindObjectOfType<EnemySpawner>();
+        if (spawner) spawner.OnEnemyKilled();
+
+        // Sử dụng Invoke để delay việc destroy object
+        Invoke("DestroyEnemy", 0.5f);
+    }
+
+    private void DestroyEnemy()
+    {
+        Destroy(gameObject);
     }
 
     private void UpdateHealthUI()
     {
-        if (healthSlider != null)
+        if (healthSlider)
         {
-            healthSlider.maxValue = maxHealth; // Đặt giá trị tối đa
-            healthSlider.value = currentHealth; // Cập nhật giá trị hiện tại
+            healthSlider.maxValue = maxHealth;
+            healthSlider.value = currentHealth;
+        }
+    }
+
+    private void UpdateHealthBarPosition()
+    {
+        if (healthSlider)
+        {
+            healthSlider.transform.position = Camera.main.WorldToScreenPoint(transform.position + healthBarOffset);
+        }
+    }
+
+    private void FlipSprite(float directionX)
+    {
+        if (directionX != 0)
+        {
+            spriteRenderer.flipX = directionX < 0;
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (isDead) return;
+
+        if (collision.CompareTag("Sword"))
+        {
+            TakeDamage(2, collision.transform.position);
+        }
+        else if (collision.CompareTag("Skill Q") || collision.CompareTag("Skill E"))
+        {
+            TakeDamage(5, collision.transform.position);
         }
     }
 }
