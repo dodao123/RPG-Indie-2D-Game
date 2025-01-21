@@ -241,4 +241,13 @@ public class EnemySpawner : MonoBehaviour
     public int GetPlayerSoulPoints() => playerSoulPoints;
     public int GetCurrentWave() => currentWave;
     public bool IsWaveInProgress() => isWaveInProgress;
+
+    public int GetcurrentWave()
+    {
+        return currentWave;
+    }
+    public int GetplayerSoulPoints()
+    {
+        return playerSoulPoints;
+    }
 }
